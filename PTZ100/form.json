@@ -1,0 +1,148 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "Verbindung",
+      "items": [
+        { "type": "ValidationTextBox", "name": "Host", "caption": "Host / IP" },
+        { "type": "NumberSpinner", "name": "Port", "caption": "Telnet-Port", "minimum": 1, "maximum": 65535 },
+        { "type": "ValidationTextBox", "name": "Username", "caption": "Benutzer" },
+        { "type": "PasswordTextBox", "name": "Password", "caption": "Passwort (Werk: leer)" },
+        { "type": "NumberSpinner", "name": "TimeoutMs", "caption": "Timeout (ms)", "minimum": 500, "maximum": 20000 },
+        { "type": "CheckBox", "name": "TrackingOffOnManual", "caption": "Bei manueller Steuerung Tracking automatisch abschalten" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Polling / Performance",
+      "items": [
+        { "type": "NumberSpinner", "name": "PollSlow", "caption": "PollSlow (Sek.)", "minimum": 5, "maximum": 600 },
+        { "type": "NumberSpinner", "name": "PollFast", "caption": "PollFast (Sek.)", "minimum": 2, "maximum": 30 },
+        { "type": "NumberSpinner", "name": "FastAfterChange", "caption": "FastAfterChange (Sek.)", "minimum": 5, "maximum": 120 },
+        { "type": "NumberSpinner", "name": "PendingTimeout", "caption": "Pending-Timeout (Sek.)", "minimum": 3, "maximum": 60 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "PTZ-Steuerung",
+      "items": [
+        {
+          "type": "Label",
+          "caption": "Pan/Tilt/Zoom/Preset funktionieren nur bei Tracking-Modus 'aus'. Bei aktiver Option oben wird das automatisch umgeschaltet."
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "▲ Hoch", "onClick": "PLPTZ_Move($id, 'u');" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "◀ Links", "onClick": "PLPTZ_Move($id, 'l');" },
+            { "type": "Button", "caption": "PTZ Reset", "onClick": "PLPTZ_ResetPTZ($id);" },
+            { "type": "Button", "caption": "Rechts ▶", "onClick": "PLPTZ_Move($id, 'r');" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "▼ Runter", "onClick": "PLPTZ_Move($id, 'd');" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "ZoomVal", "caption": "Zoom (100=1x)", "minimum": 100, "maximum": 4000 },
+            { "type": "Button", "caption": "Zoom setzen", "onClick": "PLPTZ_SetZoom($id, $ZoomVal);" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Presets",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "PresetNo", "caption": "Preset (1..9)", "minimum": 1, "maximum": 9 },
+            { "type": "Button", "caption": "Preset laden", "onClick": "PLPTZ_PresetLoad($id, $PresetNo);" },
+            { "type": "Button", "caption": "Preset speichern", "onClick": "PLPTZ_PresetSave($id, $PresetNo);" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Bild / Modus",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            {
+              "type": "Select",
+              "name": "ModeSel",
+              "caption": "Kamera-Modus",
+              "options": [
+                { "caption": "Tracking aus (manuell)", "value": 0 },
+                { "caption": "Auto-Framing", "value": 1 },
+                { "caption": "Speaker-Tracking", "value": 2 },
+                { "caption": "Presenter-Tracking", "value": 3 },
+                { "caption": "Individuals-Gallery", "value": 4 }
+              ]
+            },
+            { "type": "Button", "caption": "Modus setzen", "onClick": "PLPTZ_SetCameraMode($id, $ModeSel);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Autofokus AN", "onClick": "PLPTZ_SetAutofocus($id, true);" },
+            { "type": "Button", "caption": "Autofokus AUS", "onClick": "PLPTZ_SetAutofocus($id, false);" },
+            { "type": "NumberSpinner", "name": "FocusVal", "caption": "Fokus (manuell)", "minimum": 0, "maximum": 20000 },
+            { "type": "Button", "caption": "Fokus setzen", "onClick": "PLPTZ_SetFocus($id, $FocusVal);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "HDMI-Out AN", "onClick": "PLPTZ_SetHDMIOut($id, true);" },
+            { "type": "Button", "caption": "HDMI-Out AUS", "onClick": "PLPTZ_SetHDMIOut($id, false);" },
+            { "type": "Button", "caption": "Privacy umschalten", "onClick": "PLPTZ_PrivacyToggle($id);" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Diagnose",
+      "items": [
+        { "type": "Label", "caption": "Online/LastError werden über Polling aktualisiert." },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Verbindung testen", "onClick": "echo PLPTZ_TestConnection($id) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Status jetzt abfragen", "onClick": "PLPTZ_PollNow($id);" },
+            { "type": "Button", "caption": "Neustart (Reboot)", "onClick": "PLPTZ_Reboot($id);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "ValidationTextBox", "name": "DiagCmd", "caption": "CLI-Befehl (z.B. gbconfig -s camera-mode)" },
+            { "type": "Button", "caption": "Senden", "onClick": "echo PLPTZ_SendCommand($id, $DiagCmd);" }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": [
+    { "type": "Label", "caption": "Statusvariablen: Kamera-Modus, Zoom, Preset, Autofokus, HDMI-Out, Privacy." }
+  ],
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 104, "icon": "inactive", "caption": "Inaktiv" },
+    { "code": 201, "icon": "error", "caption": "Host nicht konfiguriert" }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "Verbindung",
+      "items": [
+        { "type": "ValidationTextBox", "name": "Host", "caption": "Host / IP" },
+        { "type": "NumberSpinner", "name": "Port", "caption": "Telnet-Port (Standard: 23)", "minimum": 1, "maximum": 65535 },
+        { "type": "ValidationTextBox", "name": "Username", "caption": "Benutzer (nur falls Login abgefragt wird)" },
+        { "type": "PasswordTextBox", "name": "Password", "caption": "Passwort (nur falls Login abgefragt wird)" },
+        { "type": "NumberSpinner", "name": "TimeoutMs", "caption": "Timeout (ms)", "minimum": 500, "maximum": 20000 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Polling / Performance",
+      "items": [
+        { "type": "NumberSpinner", "name": "PollSlow", "caption": "PollSlow (Sek.)", "minimum": 5, "maximum": 600 },
+        { "type": "NumberSpinner", "name": "PollFast", "caption": "PollFast (Sek.)", "minimum": 2, "maximum": 30 },
+        { "type": "NumberSpinner", "name": "FastAfterChange", "caption": "FastAfterChange (Sek.)", "minimum": 5, "maximum": 120 },
+        { "type": "NumberSpinner", "name": "PendingTimeout", "caption": "Pending-Timeout (Sek.)", "minimum": 3, "maximum": 60 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Steuerung",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Quelle: USB-C IN", "onClick": "PLBYOD_SelectSource($id, 0);" },
+            { "type": "Button", "caption": "Quelle: HDMI IN",  "onClick": "PLBYOD_SelectSource($id, 1);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Multiview AN",  "onClick": "PLBYOD_SetDualView($id, true);" },
+            { "type": "Button", "caption": "Multiview AUS", "onClick": "PLBYOD_SetDualView($id, false);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Guide-Screen anzeigen", "onClick": "PLBYOD_SetGuideScreen($id, true);" },
+            { "type": "Button", "caption": "Guide-Screen aus",      "onClick": "PLBYOD_SetGuideScreen($id, false);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "ValidationTextBox", "name": "LayoutId", "caption": "Layout-ID (z.B. 0x100 / 0x101)" },
+            { "type": "Button", "caption": "Layout setzen", "onClick": "PLBYOD_SetLayout($id, $LayoutId);" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Diagnose",
+      "items": [
+        { "type": "Label", "caption": "Online/LastError werden über Polling aktualisiert." },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Verbindung testen", "onClick": "echo PLBYOD_TestConnection($id) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Status jetzt abfragen", "onClick": "PLBYOD_PollNow($id);" },
+            { "type": "Button", "caption": "Neustart (Reboot)", "onClick": "PLBYOD_Reboot($id);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "ValidationTextBox", "name": "DiagCmd", "caption": "CLI-Befehl (z.B. gbconfig -s video-source)" },
+            { "type": "Button", "caption": "Senden", "onClick": "echo PLBYOD_SendCommand($id, $DiagCmd);" }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": [
+    { "type": "Label", "caption": "Statusvariablen: Aktive Quelle, Multiview, Guide-Screen, Signal je Eingang." }
+  ],
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 104, "icon": "inactive", "caption": "Inaktiv" },
+    { "code": 201, "icon": "error", "caption": "Host nicht konfiguriert" }
+  ]
+}

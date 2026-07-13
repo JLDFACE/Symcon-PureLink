@@ -1,0 +1,13 @@
+{
+  "id": "{22979EA9-2940-459D-9A9B-5A44F6A7AE63}",
+  "name": "PureLink Configurator",
+  "type": 4,
+  "vendor": "PureLink",
+  "aliases": [
+    "PureLink Device Search"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "PLCFG"
+}

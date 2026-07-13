@@ -1,0 +1,12 @@
+{
+  "id": "{EB76E424-1733-495C-93C2-5B3F881EB201}",
+  "author": "FACE GmbH / JLD",
+  "name": "Symcon-PureLink",
+  "url": "https://github.com/JLDFACE/Symcon-PureLink",
+  "version": "1.0",
+  "build": 1,
+  "date": 20260713,
+  "compatibility": {
+    "version": "7.0"
+  }
+}

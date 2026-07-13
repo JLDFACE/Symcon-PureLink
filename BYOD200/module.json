@@ -1,0 +1,14 @@
+{
+  "id": "{8041FE72-CD5F-45BD-B775-1FE4C5FEDB02}",
+  "name": "PureLink VL-BYOD200",
+  "type": 3,
+  "vendor": "PureLink",
+  "aliases": [
+    "PureLink BYOD200",
+    "VL-BYOD200"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "PLBYOD"
+}
