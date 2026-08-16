@@ -33,21 +33,21 @@
         {
           "type": "RowLayout",
           "items": [
-            { "type": "Button", "caption": "▲ Hoch", "onClick": "PLPTZ_Move($id, 'u');" }
+            { "type": "Button", "caption": "▲ Hoch", "onClick": "PLPTZ_MoveBurst($id, 'u');" }
           ]
         },
         {
           "type": "RowLayout",
           "items": [
-            { "type": "Button", "caption": "◀ Links", "onClick": "PLPTZ_Move($id, 'l');" },
+            { "type": "Button", "caption": "◀ Links", "onClick": "PLPTZ_MoveBurst($id, 'l');" },
             { "type": "Button", "caption": "PTZ Reset", "onClick": "PLPTZ_ResetPTZ($id);" },
-            { "type": "Button", "caption": "Rechts ▶", "onClick": "PLPTZ_Move($id, 'r');" }
+            { "type": "Button", "caption": "Rechts ▶", "onClick": "PLPTZ_MoveBurst($id, 'r');" }
           ]
         },
         {
           "type": "RowLayout",
           "items": [
-            { "type": "Button", "caption": "▼ Runter", "onClick": "PLPTZ_Move($id, 'd');" }
+            { "type": "Button", "caption": "▼ Runter", "onClick": "PLPTZ_MoveBurst($id, 'd');" }
           ]
         },
         {
@@ -55,6 +55,31 @@
           "items": [
             { "type": "NumberSpinner", "name": "ZoomVal", "caption": "Zoom (100=1x)", "minimum": 100, "maximum": 4000 },
             { "type": "Button", "caption": "Zoom setzen", "onClick": "PLPTZ_SetZoom($id, $ZoomVal);" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Manuelles Fahren (Feinabstimmung)",
+      "items": [
+        {
+          "type": "Label",
+          "caption": "Ein Tipp auf einen Richtungspfeil fährt einen flüssigen Ruck (mehrere Schritte in einer Sitzung). 'Grosse Schritte' (Statusvariable) schaltet zwischen Fein und Grob um. Warmup fängt die anlaufträge Kamera-Engine ab."
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "BurstFine", "caption": "Fein: Schritte je Tipp", "minimum": 1, "maximum": 30 },
+            { "type": "NumberSpinner", "name": "BurstCoarse", "caption": "Grob: Schritte je Tipp", "minimum": 1, "maximum": 30 }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "BurstWarmup", "caption": "Warmup-Schritte", "minimum": 0, "maximum": 5 },
+            { "type": "NumberSpinner", "name": "BurstDelayMs", "caption": "Pause zw. Schritten (ms)", "minimum": 0, "maximum": 1000 },
+            { "type": "NumberSpinner", "name": "BurstLoginDelayMs", "caption": "Login-Delay Burst (ms)", "minimum": 0, "maximum": 2000 }
           ]
         }
       ]

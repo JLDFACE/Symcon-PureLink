@@ -36,6 +36,16 @@ class PureLinkPTZ100 extends IPSModule
         $this->RegisterPropertyInteger('FastAfterChange', 20);
         $this->RegisterPropertyInteger('PendingTimeout', 8);
 
+        // ---- Manuelles Fahren (Burst pro Tipp) ----
+        // Ein Tipp fuehrt in EINER Telnet-Sitzung mehrere autocoord-Schritte aus.
+        // Die ersten Schritte einer frischen Sitzung sind "idle" (Kamera-Engine
+        // waermt auf) -> Warmup-Schritte vorschalten. Fein/Grob = Ruckgroesse.
+        $this->RegisterPropertyInteger('BurstFine', 3);      // sichtbare Schritte je Fein-Tipp
+        $this->RegisterPropertyInteger('BurstCoarse', 8);    // sichtbare Schritte je Grob-Tipp
+        $this->RegisterPropertyInteger('BurstWarmup', 2);    // Aufwaerm-Schritte (idle, bewegen kaum)
+        $this->RegisterPropertyInteger('BurstDelayMs', 100); // Pause zwischen den Schritten
+        $this->RegisterPropertyInteger('BurstLoginDelayMs', 300); // kurzer Delay nach Login (Burst-Pfad)
+
         // ---- State / Buffers ----
         $this->SetBuffer('FastUntil', '0');
         $this->SetBuffer('LastStatusTs', '0');
@@ -60,6 +70,21 @@ class PureLinkPTZ100 extends IPSModule
         ));
         $this->RegisterVariableInteger('Mode', 'Kamera-Modus', 'PLPTZ.Mode', 50);
         $this->EnableAction('Mode');
+
+        // Manuelles Fahren: Richtungs-Steuervariable (transient, faellt nach der
+        // Aktion auf 0 zurueck). 1=Links 2=Rechts 3=Hoch 4=Runter.
+        $this->RegisterProfileInteger('PLPTZ.Drive', 'Move', '', '', 0, 0, 0);
+        $this->SetAssociations('PLPTZ.Drive', array(
+            array(1, 'Links',  'ArrowLeft',  -1),
+            array(2, 'Rechts', 'ArrowRight', -1),
+            array(3, 'Hoch',   'ArrowUp',    -1),
+            array(4, 'Runter', 'ArrowDown',  -1)
+        ));
+        $this->RegisterVariableInteger('Drive', 'Fahren', 'PLPTZ.Drive', 52);
+        $this->EnableAction('Drive');
+
+        $this->RegisterVariableBoolean('CoarseStep', 'Grosse Schritte', '~Switch', 54);
+        $this->EnableAction('CoarseStep');
 
         $this->RegisterProfileInteger('PLPTZ.Zoom', 'Zoom', '', 'x', 100, 400, 10);
         $this->RegisterVariableInteger('Zoom', 'Zoom (100=1x)', 'PLPTZ.Zoom', 60);
@@ -111,6 +136,20 @@ class PureLinkPTZ100 extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
+        if ($Ident == 'Drive') {
+            $map = array(1 => 'l', 2 => 'r', 3 => 'u', 4 => 'd');
+            $v = intval($Value);
+            if (isset($map[$v])) {
+                $this->MoveBurst($map[$v]);
+            }
+            // Steuervariable bleibt neutral, damit jeder Tipp neu ausloest
+            $this->SetValueIntegerSafe('Drive', 0);
+            return;
+        }
+        if ($Ident == 'CoarseStep') {
+            $this->SetValueBooleanSafe('CoarseStep', (bool)$Value);
+            return;
+        }
         if ($Ident == 'Mode') {
             if ($this->SetCameraMode(intval($Value))) {
                 $this->SetPending('Mode', intval($Value));
@@ -164,7 +203,7 @@ class PureLinkPTZ100 extends IPSModule
     // Public API (Form-Buttons / Skripte)
     // =========================================================================
 
-    // dir: 'r' | 'l' | 'u' | 'd'
+    // dir: 'r' | 'l' | 'u' | 'd' — Einzelschritt (Skript-/Kompatibilitaets-API).
     public function Move($dir)
     {
         $d = strtolower(trim(strval($dir)));
@@ -175,6 +214,51 @@ class PureLinkPTZ100 extends IPSModule
         if (!$this->EnsureManual()) return false;
         $r = $this->Cli('gbconfig --camera-autocoord ' . $d);
         return $this->EvalReturn($r);
+    }
+
+    // Fluessiges manuelles Fahren fuer die Visu: fuehrt in EINER Telnet-Sitzung
+    // mehrere Schritte aus (Warmup + Fein/Grob). Deutlich schneller als viele
+    // Einzelaufrufe (je eigener Login). dir: 'r' | 'l' | 'u' | 'd'.
+    public function MoveBurst($dir)
+    {
+        $d = strtolower(trim(strval($dir)));
+        if (!in_array($d, array('r', 'l', 'u', 'd'))) {
+            $this->SetOnline(false, 'Ungueltige Richtung: ' . $dir);
+            return false;
+        }
+        if (!$this->EnsureManual()) return false;
+
+        $coarse = false;
+        $cid = @$this->GetIDForIdent('CoarseStep');
+        if ($cid) $coarse = GetValueBoolean($cid);
+
+        $n = intval($this->ReadPropertyInteger($coarse ? 'BurstCoarse' : 'BurstFine'));
+        if ($n < 1) $n = 1;
+        if ($n > 30) $n = 30;
+        $warmup = intval($this->ReadPropertyInteger('BurstWarmup'));
+        if ($warmup < 0) $warmup = 0;
+        if ($warmup > 5) $warmup = 5;
+        $delay = intval($this->ReadPropertyInteger('BurstDelayMs'));
+        if ($delay < 0) $delay = 0;
+        $loginDelay = intval($this->ReadPropertyInteger('BurstLoginDelayMs'));
+        if ($loginDelay < 0) $loginDelay = 0;
+
+        $cmd = 'gbconfig --camera-autocoord ' . $d;
+        $cmds = array();
+        for ($i = 0; $i < ($warmup + $n); $i++) $cmds[] = $cmd;
+
+        $last = $this->CliMulti($cmds, $delay, $loginDelay);
+        if ($last === false) return false;
+
+        // -1 (Idle) ist harmlos; -2..-6 sind echte Ablehnungen (z.B. Tracking an).
+        $t = trim($last);
+        if (preg_match('/^-[2-9]$/', $t)) {
+            $this->SetOnline(false, 'Fahren abgelehnt (Code ' . $t . '): ' . $this->ReturnCodeText(intval($t)));
+            return false;
+        }
+        $this->ClearLastError();
+        $this->BumpFastPoll();
+        return true;
     }
 
     public function SetCameraMode($mode)
@@ -341,6 +425,11 @@ class PureLinkPTZ100 extends IPSModule
     {
         if (!$this->ReadPropertyBoolean('TrackingOffOnManual')) return true;
 
+        // Schnellpfad: zeigt unsere Mode-Variable bereits 0 (manuell), sparen wir
+        // den Extra-Query - wichtig fuer fluessiges wiederholtes Fahren.
+        $mid = @$this->GetIDForIdent('Mode');
+        if ($mid && GetValueInteger($mid) === 0) return true;
+
         $mode = $this->CliRaw('gbconfig -s camera-mode');
         if ($mode !== false && intval(trim($mode)) !== 0) {
             $r = $this->Cli('gbconfig --camera-mode 0');
@@ -404,7 +493,57 @@ class PureLinkPTZ100 extends IPSModule
     }
 
     // Wie Cli(), aber ohne eigene Lock-Verwaltung (fuer Aufruf innerhalb Poll()).
+    // Einzelbefehl: Login (mit vollem Post-Login-Delay) + 1 Befehl.
     private function CliRaw($command)
+    {
+        $timeoutMs = intval($this->ReadPropertyInteger('TimeoutMs'));
+        if ($timeoutMs < 500) $timeoutMs = 4000;
+
+        $fp = $this->TelnetOpen(1000);
+        if ($fp === false) return false;
+
+        $res = $this->TelnetSend($fp, $command, $timeoutMs);
+        fclose($fp);
+        if ($res === false) {
+            $this->SetOnline(false, 'Kein Antwort-Prompt auf Befehl.');
+            return false;
+        }
+        return $res;
+    }
+
+    // Fuehrt mehrere Befehle in EINER Sitzung aus (mit Lock). Rueckgabe: letzte
+    // nicht-leere Antwort oder false. Fuer fluessiges Burst-Fahren.
+    private function CliMulti($commands, $delayMs, $loginDelayMs)
+    {
+        $ownLock = $this->TryLock();
+        $res = $this->CliMultiRaw($commands, $delayMs, $loginDelayMs);
+        if ($ownLock) $this->Unlock();
+        return $res;
+    }
+
+    private function CliMultiRaw($commands, $delayMs, $loginDelayMs)
+    {
+        $timeoutMs = intval($this->ReadPropertyInteger('TimeoutMs'));
+        if ($timeoutMs < 500) $timeoutMs = 4000;
+
+        $fp = $this->TelnetOpen($loginDelayMs);
+        if ($fp === false) return false;
+
+        $last = '';
+        $count = count($commands);
+        for ($i = 0; $i < $count; $i++) {
+            $r = $this->TelnetSend($fp, $commands[$i], $timeoutMs);
+            if ($r !== false && trim($r) !== '') $last = $r;
+            if ($i < $count - 1 && $delayMs > 0) IPS_Sleep($delayMs);
+        }
+        fclose($fp);
+        return $last;
+    }
+
+    // Oeffnet die Verbindung und fuehrt den Login-Handshake aus. Wartet danach
+    // $postLoginDelayMs (die CLI verschluckt sonst den ersten Befehl). Gibt den
+    // offenen Stream oder false zurueck (Fehler ist bereits via SetOnline gemeldet).
+    private function TelnetOpen($postLoginDelayMs)
     {
         $host = trim($this->ReadPropertyString('Host'));
         $port = intval($this->ReadPropertyInteger('Port'));
@@ -461,23 +600,21 @@ class PureLinkPTZ100 extends IPSModule
         }
 
         // WICHTIG: Die PTZ100-CLI nimmt direkt nach dem Login-Prompt noch keine
-        // Befehle an - ein sofort gesendetes Kommando wird still verschluckt (kein
-        // Echo, keine Antwort). Empirisch ist ab ~700ms alles stabil; wir warten
-        // grosszuegig, bevor der (einmalige) Befehl gesendet wird. Eine reine
-        // Leerzeile "aufzuwecken" hilft nicht - nur ein Kommando mit ausreichendem
-        // zeitlichem Abstand zum Prompt kommt durch.
-        IPS_Sleep(1000);
+        // Befehle an - ein sofort gesendetes Kommando wird still verschluckt.
+        // Beim Einzelbefehl warten wir grosszuegig (1000ms); beim Burst reicht ein
+        // kuerzerer Delay, weil vorgeschaltete Warmup-Schritte den Effekt abfangen.
+        if ($postLoginDelayMs > 0) IPS_Sleep($postLoginDelayMs);
 
-        // Befehl senden
+        return $fp;
+    }
+
+    // Sendet einen Befehl auf einer offenen Sitzung und liest bis zum Prompt.
+    // Rueckgabe: bereinigte Antwort oder false (kein Prompt).
+    private function TelnetSend($fp, $command, $timeoutMs)
+    {
         $this->TelnetWrite($fp, $command . "\r\n");
         $raw = $this->TelnetTransceive($fp, null, array('# ', '$ ', '> '), $timeoutMs);
-        fclose($fp);
-
-        if ($raw === false) {
-            $this->SetOnline(false, 'Kein Antwort-Prompt auf Befehl.');
-            return false;
-        }
-
+        if ($raw === false) return false;
         return $this->CleanResponse($raw, $command);
     }
 
