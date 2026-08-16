@@ -10,7 +10,7 @@
  * - SymBox-sicher: kein strict_types, keine PHP8-Typen, keine globalen Funktionen.
  */
 
-class PLCFG extends IPSModule
+class PureLinkConfigurator extends IPSModule
 {
     // GUIDs der Geraete-Module dieser Library
     const GUID_BYOD200 = '{8041FE72-CD5F-45BD-B775-1FE4C5FEDB02}';

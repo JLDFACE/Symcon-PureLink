@@ -17,7 +17,7 @@
  * Modul vor solchen Aktionen automatisch auf Modus 0 schalten (Property TrackingOffOnManual).
  */
 
-class PLPTZ extends IPSModule
+class PureLinkPTZ100 extends IPSModule
 {
     public function Create()
     {

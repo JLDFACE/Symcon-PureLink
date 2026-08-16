@@ -13,11 +13,11 @@
  * - Stabilitaet: Semaphore/Lock, niemals Fatals; Online/LastError nur bei Aenderung.
  * - UI-Stabilitaet: Pending-Logik fuer gesetzte Sollwerte (Quelle/DualView/Guide).
  *
- * Quellnamen (VideoName) laut API: usbc, hdmi (wired); airplay*/miracast*/dongle*/chromecast* (BYOD);
- * guide = Guide-Screen.
+ * Quellnamen (VideoName) laut API: usbc, hdmi (wired); airplay..., miracast..., dongle...,
+ * chromecast... (BYOD); guide = Guide-Screen.
  */
 
-class PLBYOD extends IPSModule
+class PureLinkBYOD200 extends IPSModule
 {
     public function Create()
     {

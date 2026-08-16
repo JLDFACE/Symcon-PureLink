@@ -1,11 +1,12 @@
 {
   "id": "{30524568-8CA3-4334-955A-AD43B8FCC614}",
-  "name": "PureLink VL-PTZ100",
+  "name": "PureLink PTZ100",
   "type": 3,
   "vendor": "PureLink",
   "aliases": [
-    "PureLink PTZ100",
-    "VL-PTZ100"
+    "PureLink VL-PTZ100",
+    "VL-PTZ100",
+    "PTZ100"
   ],
   "parentRequirements": [],
   "childRequirements": [],
