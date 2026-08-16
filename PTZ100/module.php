@@ -46,6 +46,12 @@ class PureLinkPTZ100 extends IPSModule
         $this->RegisterPropertyInteger('BurstDelayMs', 100); // Pause zwischen den Schritten
         $this->RegisterPropertyInteger('BurstLoginDelayMs', 300); // kurzer Delay nach Login (Burst-Pfad)
 
+        // ---- Dauerfahrt (Continuous-Button "halten = fahren") ----
+        // DriveStart haelt EINE Sitzung offen und fährt kontinuierlich, bis DriveStop
+        // das Aktiv-Flag loescht (oder das Sicherheits-Timeout greift).
+        $this->RegisterPropertyInteger('DriveMaxMs', 6000);  // Sicherheits-Timeout (max. Fahrtdauer)
+        $this->RegisterPropertyInteger('DriveStepMs', 90);   // Pause zwischen Schritten waehrend der Fahrt
+
         // ---- State / Buffers ----
         $this->SetBuffer('FastUntil', '0');
         $this->SetBuffer('LastStatusTs', '0');
@@ -85,6 +91,11 @@ class PureLinkPTZ100 extends IPSModule
 
         $this->RegisterVariableBoolean('CoarseStep', 'Grosse Schritte', '~Switch', 54);
         $this->EnableAction('CoarseStep');
+
+        // Live-Flag der Dauerfahrt: dient zugleich als thread-uebergreifendes Stopp-
+        // Signal (DriveStop setzt false, die laufende DriveStart-Schleife liest es live).
+        $this->RegisterVariableBoolean('DriveActive', 'Fahrt aktiv', '~Switch', 56);
+        $this->DisableAction('DriveActive');
 
         $this->RegisterProfileInteger('PLPTZ.Zoom', 'Zoom', '', 'x', 100, 400, 10);
         $this->RegisterVariableInteger('Zoom', 'Zoom (100=1x)', 'PLPTZ.Zoom', 60);
@@ -258,6 +269,74 @@ class PureLinkPTZ100 extends IPSModule
         }
         $this->ClearLastError();
         $this->BumpFastPoll();
+        return true;
+    }
+
+    // Dauerfahrt fuer Continuous-Buttons ("halten = fahren"): haelt EINE Telnet-
+    // Sitzung offen und faehrt kontinuierlich, bis DriveStop das Aktiv-Flag loescht
+    // oder das Sicherheits-Timeout greift. dir: 'r' | 'l' | 'u' | 'd'.
+    public function DriveStart($dir)
+    {
+        $d = strtolower(trim(strval($dir)));
+        if (!in_array($d, array('r', 'l', 'u', 'd'))) {
+            $this->SetOnline(false, 'Ungueltige Richtung: ' . $dir);
+            return false;
+        }
+        // Lock verhindert Ueberlappung mit Poll oder einer zweiten Fahrt.
+        if (!$this->TryLock()) return false;
+
+        $activeId = $this->GetIDForIdent('DriveActive');
+        SetValueBoolean($activeId, true);
+
+        if (!$this->EnsureManual()) {
+            SetValueBoolean($activeId, false);
+            $this->Unlock();
+            return false;
+        }
+
+        $maxMs = intval($this->ReadPropertyInteger('DriveMaxMs'));
+        if ($maxMs < 500) $maxMs = 6000;
+        if ($maxMs > 30000) $maxMs = 30000;
+        $stepMs = intval($this->ReadPropertyInteger('DriveStepMs'));
+        if ($stepMs < 20) $stepMs = 90;
+        $loginDelay = intval($this->ReadPropertyInteger('BurstLoginDelayMs'));
+        if ($loginDelay < 0) $loginDelay = 0;
+        $timeoutMs = intval($this->ReadPropertyInteger('TimeoutMs'));
+        if ($timeoutMs < 500) $timeoutMs = 4000;
+        $warmup = intval($this->ReadPropertyInteger('BurstWarmup'));
+        if ($warmup < 0) $warmup = 0;
+        if ($warmup > 5) $warmup = 5;
+
+        $fp = $this->TelnetOpen($loginDelay);
+        if ($fp === false) {
+            SetValueBoolean($activeId, false);
+            $this->Unlock();
+            return false;
+        }
+
+        $cmd = 'gbconfig --camera-autocoord ' . $d;
+        // Warmup: Fahr-Engine aufwecken (erste Schritte sind sonst idle)
+        for ($i = 0; $i < $warmup; $i++) $this->TelnetSend($fp, $cmd, $timeoutMs);
+
+        // Kontinuierlich fahren, bis DriveStop das Flag loescht oder Timeout greift.
+        $start = microtime(true);
+        while (GetValueBoolean($activeId) && ((microtime(true) - $start) * 1000.0) < $maxMs) {
+            $this->TelnetSend($fp, $cmd, $timeoutMs);
+            IPS_Sleep($stepMs);
+        }
+        @fclose($fp);
+        SetValueBoolean($activeId, false);
+        $this->ClearLastError();
+        $this->Unlock();
+        return true;
+    }
+
+    // Stoppt die laufende Dauerfahrt. Nutzt bewusst KEIN Lock, damit das Signal
+    // sofort durchkommt, waehrend DriveStart das Lock haelt.
+    public function DriveStop()
+    {
+        $activeId = @$this->GetIDForIdent('DriveActive');
+        if ($activeId) SetValueBoolean($activeId, false);
         return true;
     }
 
