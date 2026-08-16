@@ -460,6 +460,14 @@ class PureLinkPTZ100 extends IPSModule
             $this->TelnetTransceive($fp, null, array('# ', '$ ', '> '), 1500);
         }
 
+        // WICHTIG: Die PTZ100-CLI nimmt direkt nach dem Login-Prompt noch keine
+        // Befehle an - ein sofort gesendetes Kommando wird still verschluckt (kein
+        // Echo, keine Antwort). Empirisch ist ab ~700ms alles stabil; wir warten
+        // grosszuegig, bevor der (einmalige) Befehl gesendet wird. Eine reine
+        // Leerzeile "aufzuwecken" hilft nicht - nur ein Kommando mit ausreichendem
+        // zeitlichem Abstand zum Prompt kommt durch.
+        IPS_Sleep(1000);
+
         // Befehl senden
         $this->TelnetWrite($fp, $command . "\r\n");
         $raw = $this->TelnetTransceive($fp, null, array('# ', '$ ', '> '), $timeoutMs);
