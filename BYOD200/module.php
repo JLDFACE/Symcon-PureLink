@@ -52,10 +52,16 @@ class PureLinkBYOD200 extends IPSModule
         $this->RegisterProfileInteger('PLBYOD.Source', 'Display', '', '', 0, 0, 0);
         $this->SetAssociations('PLBYOD.Source', array(
             array(0, 'USB-C IN', '', -1),
-            array(1, 'HDMI IN', '', -1)
+            array(1, 'HDMI IN', '', -1),
+            array(2, 'Drahtlos (BYOD)', '', -1),
+            array(3, 'Getrennt', '', -1)
         ));
         $this->RegisterVariableInteger('Source', 'Aktive Quelle (Vollbild)', 'PLBYOD.Source', 50);
         $this->EnableAction('Source');
+
+        // Bei drahtloser Uebertragung (AirPlay/Miracast/Chromecast/Dongle) meldet
+        // das Geraet einen geraetespezifischen Sendernamen (z.B. "VL-DGL200-1").
+        $this->RegisterVariableString('WirelessName', 'Drahtlose Quelle', '~TextBox', 55);
 
         $this->RegisterVariableBoolean('DualView', 'Multiview', '~Switch', 60);
         $this->EnableAction('DualView');
@@ -85,9 +91,16 @@ class PureLinkBYOD200 extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         if ($Ident == 'Source') {
-            if ($this->SelectSource(intval($Value))) {
-                $this->SetPending('Source', intval($Value));
-                $this->SetValueIntegerSafe('Source', intval($Value));
+            // Nur die physischen Eingaenge sind aktiv waehlbar. Werte 2 (Drahtlos)
+            // und 3 (Getrennt) sind reine Statuszustaende und werden ignoriert.
+            $v = intval($Value);
+            if ($v !== 0 && $v !== 1) {
+                return;
+            }
+            if ($this->SelectSource($v)) {
+                $this->SetPending('Source', $v);
+                $this->SetValueIntegerSafe('Source', $v);
+                $this->SetValueStringSafe('WirelessName', '');
                 $this->SetPending('GuideScreen', 0);
                 $this->SetValueBooleanSafe('GuideScreen', false);
                 $this->BumpFastPoll();
@@ -243,20 +256,23 @@ class PureLinkBYOD200 extends IPSModule
             $this->ApplyBoolWithPending('DualView', $this->YesNoToInt($mv));
         }
 
-        // Eingangssignale
+        // Eingangssignale (rohes "invalid"/"none" -> "Nicht verbunden")
         $u = $this->CliRaw('gbconfig -s input-video usbc');
-        if ($u !== false) $this->SetValueStringSafe('SignalUSBC', $this->FirstLine($u));
+        if ($u !== false) $this->SetValueStringSafe('SignalUSBC', $this->PrettySignal($u));
         $h = $this->CliRaw('gbconfig -s input-video hdmi');
-        if ($h !== false) $this->SetValueStringSafe('SignalHDMI', $this->FirstLine($h));
+        if ($h !== false) $this->SetValueStringSafe('SignalHDMI', $this->PrettySignal($h));
 
         $this->SetBuffer('LastStatusTs', strval(time()));
         $this->Unlock();
     }
 
     // Wertet 'gbconfig -s video-source' aus: { guide | disconnected | <name> [<name>...] }
+    // <name> ist bei drahtlosen Quellen ein geraetespezifischer Sendername
+    // (z.B. "VL-DGL200-1", AirPlay-/Miracast-/Chromecast-Geraetename).
     private function ApplyVideoSource($resp)
     {
-        $t = strtolower(trim($this->FirstLine($resp)));
+        $raw = trim($this->FirstLine($resp));
+        $t = strtolower($raw);
         if ($t === '') return;
 
         if (strpos($t, 'guide') === 0) {
@@ -266,20 +282,38 @@ class PureLinkBYOD200 extends IPSModule
         $this->ApplyBoolWithPending('GuideScreen', 0);
 
         if (strpos($t, 'disconnected') === 0) {
-            $this->ExpirePendingOnly('Source');
+            $this->SetValueStringSafe('WirelessName', '');
+            $this->ApplyIntWithPending('Source', 3); // Getrennt
             return;
         }
 
-        // Erstes gueltiges Token = aktive/fuehrende Quelle
+        // Physische Eingaenge zuerst: erstes usbc/hdmi-Token = fuehrende Quelle
         $tokens = preg_split('/\s+/', $t);
+        $rawTokens = preg_split('/\s+/', $raw);
         foreach ($tokens as $tok) {
             $idx = $this->IndexBySourceName($tok);
             if ($idx >= 0) {
+                $this->SetValueStringSafe('WirelessName', '');
                 $this->ApplyIntWithPending('Source', $idx);
                 return;
             }
         }
-        $this->ExpirePendingOnly('Source');
+
+        // Kein usbc/hdmi -> drahtlose/BYOD-Quelle. Originalnamen (Case erhalten) anzeigen.
+        $name = isset($rawTokens[0]) ? $rawTokens[0] : $raw;
+        $this->SetValueStringSafe('WirelessName', $name);
+        $this->ApplyIntWithPending('Source', 2); // Drahtlos (BYOD)
+    }
+
+    // Rohes Eingangssignal menschenlesbar machen: "invalid"/"none"/leer -> "Nicht verbunden".
+    private function PrettySignal($resp)
+    {
+        $t = trim($this->FirstLine($resp));
+        $l = strtolower($t);
+        if ($t === '' || $l === 'invalid' || $l === 'none') {
+            return 'Nicht verbunden';
+        }
+        return $t;
     }
 
     // =========================================================================
