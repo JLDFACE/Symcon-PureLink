@@ -1,0 +1,124 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "Verbindung",
+      "items": [
+        { "type": "ValidationTextBox", "name": "Host", "caption": "Host / IP" },
+        { "type": "NumberSpinner", "name": "Port", "caption": "HTTP-Port (Standard: 80)", "minimum": 1, "maximum": 65535 },
+        { "type": "NumberSpinner", "name": "TimeoutMs", "caption": "Timeout (ms)", "minimum": 300, "maximum": 20000 },
+        { "type": "NumberSpinner", "name": "MinIntervalMs", "caption": "Mindestabstand zwischen HTTP-Calls (ms)", "minimum": 0, "maximum": 2000 },
+        { "type": "ValidationTextBox", "name": "Username", "caption": "Benutzer (Standard: admin)" },
+        { "type": "PasswordTextBox", "name": "Password", "caption": "Passwort (Standard: admin)" },
+        { "type": "Label", "caption": "Control.cgi erzwingt keine Authentifizierung; der Login dient nur, falls eine Firmware ihn verlangt." }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Matrix / Topologie",
+      "items": [
+        { "type": "NumberSpinner", "name": "InputCount", "caption": "Eingänge", "minimum": 1, "maximum": 16 },
+        { "type": "NumberSpinner", "name": "OutputCount", "caption": "Ausgänge (A, B, …)", "minimum": 1, "maximum": 8 },
+        { "type": "CheckBox", "name": "ManageAudio", "caption": "Audio-Routing steuern (nur bei 2-Ausgang-Geräten mit De-embedded/ARC)" },
+        { "type": "Label", "caption": "Verifiziert ist die 4x2 (2 Ausgänge, 4 Eingänge). Größere SCU-Modelle nutzen dieselben Klartext-Befehle; das Feedback-Layout dort bitte per „Rohes Feedback zeigen“ gegenprüfen." },
+        {
+          "type": "List",
+          "name": "InputNames",
+          "caption": "Namen der Eingänge (Reihenfolge = Eingang 1..n, leer = Standardname)",
+          "rowCount": 4,
+          "add": true,
+          "delete": true,
+          "columns": [
+            { "caption": "Name", "name": "Name", "width": "auto", "add": "", "edit": { "type": "ValidationTextBox" } }
+          ]
+        },
+        {
+          "type": "List",
+          "name": "OutputNames",
+          "caption": "Namen der Ausgänge (Reihenfolge = A, B, …, leer = Standardname)",
+          "rowCount": 2,
+          "add": true,
+          "delete": true,
+          "columns": [
+            { "caption": "Name", "name": "Name", "width": "auto", "add": "", "edit": { "type": "ValidationTextBox" } }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Polling / Performance",
+      "items": [
+        { "type": "NumberSpinner", "name": "PollSlow", "caption": "PollSlow (Sek.)", "minimum": 5, "maximum": 600 },
+        { "type": "NumberSpinner", "name": "PollFast", "caption": "PollFast (Sek.)", "minimum": 2, "maximum": 30 },
+        { "type": "NumberSpinner", "name": "FastAfterChange", "caption": "FastAfterChange (Sek.)", "minimum": 5, "maximum": 120 },
+        { "type": "NumberSpinner", "name": "PendingTimeout", "caption": "Pending-Timeout (Sek.)", "minimum": 3, "maximum": 60 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Steuerung",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "SwOut", "caption": "Ausgang (1=A, 2=B)", "minimum": 1, "maximum": 8 },
+            { "type": "NumberSpinner", "name": "SwIn", "caption": "Eingang", "minimum": 1, "maximum": 16 },
+            { "type": "Button", "caption": "Video schalten", "onClick": "echo PLMTX_SwitchVideo($id, $SwOut, $SwIn) ? 'OK' : 'FEHLER';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "AutoOut", "caption": "Ausgang für Auto-Switch", "minimum": 1, "maximum": 8 },
+            { "type": "Button", "caption": "Auto AN", "onClick": "echo PLMTX_SetAutoSwitch($id, $AutoOut, true) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Auto AUS", "onClick": "echo PLMTX_SetAutoSwitch($id, $AutoOut, false) ? 'OK' : 'FEHLER';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Select", "name": "AudioMode", "caption": "Audio", "options": [
+              { "caption": "A De-embedded", "value": 1 },
+              { "caption": "B De-embedded", "value": 2 },
+              { "caption": "A ARC", "value": 3 },
+              { "caption": "B ARC", "value": 4 }
+            ] },
+            { "type": "Button", "caption": "Audio setzen", "onClick": "echo PLMTX_SetAudioRoute($id, $AudioMode) ? 'OK' : 'FEHLER';" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Diagnose",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Verbindung testen", "onClick": "echo PLMTX_TestConnection($id) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Status jetzt abfragen", "onClick": "PLMTX_PollNow($id);" },
+            { "type": "Button", "caption": "Rohes Feedback zeigen", "onClick": "echo PLMTX_QueryRaw($id);" },
+            { "type": "Button", "caption": "Login testen", "onClick": "echo PLMTX_Login($id) ? 'Login OK' : 'Login fehlgeschlagen';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "ValidationTextBox", "name": "RawBody", "caption": "Roh-Befehl an Control.cgi (z.B. A Input2)" },
+            { "type": "Button", "caption": "Senden", "onClick": "echo PLMTX_SendRaw($id, $RawBody);" }
+          ]
+        },
+        { "type": "Label", "caption": "Online und LastError werden über das Polling aktualisiert." }
+      ]
+    }
+  ],
+  "actions": [
+    { "type": "Label", "caption": "Statusvariablen: je Ausgang der aktive Eingang + Auto-Switch (schaltbar), dazu Audio-Routing." }
+  ],
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 104, "icon": "inactive", "caption": "Inaktiv" },
+    { "code": 201, "icon": "error", "caption": "Host nicht konfiguriert" }
+  ]
+}
