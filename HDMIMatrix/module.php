@@ -34,7 +34,7 @@
  *   springende UI-Werte. Ein Verbindung zur Zeit (Semaphore + Mindestabstand).
  */
 
-class PureLinkHDMIMatrix extends IPSModule
+class PureLinkPTMAHD42UHD extends IPSModule
 {
     public function Create()
     {
