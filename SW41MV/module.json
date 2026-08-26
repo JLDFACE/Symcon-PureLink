@@ -1,0 +1,16 @@
+{
+  "id": "{7B3C1E64-9A21-4C87-9F3E-2D5A8E1140AB}",
+  "name": "PureLink PTSWHD41MV",
+  "type": 3,
+  "vendor": "PureLink",
+  "aliases": [
+    "PureLink PT-SW-HD41MV",
+    "PT-SW-HD41MV",
+    "PureLink 4x1 Multiview Switch",
+    "HDMI Switch Multiview"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "PLSW"
+}

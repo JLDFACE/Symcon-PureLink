@@ -15,6 +15,7 @@ Verbindungen pro Aktion).
 | **PureLink VL-BYOD200** | Device | 4K60 BYOD/BYOM Presentation Switcher | Telnet-CLI (`gbconfig`/`gblayout`), Port 23 |
 | **PureLink VL-PTZ100** | Device | Compact 4K Dual-Lens PTZ Kamera | Telnet-CLI (`gbconfig`/`gbcontrol`), Port 23 |
 | **PureLink PT-MA-HD42UHD** | Device | HDMI-Matrix 4x2 (SCU-Firmware) | HTTP-CGI (`Control.cgi`), Port 80 |
+| **PureLink PT-SW-HD41MV** | Device | HDMI 4x1 Multiview-Switch | HTTP-JSON (`/cgi-bin/instr`), Port 80 |
 | **PureLink Configurator** | Configurator | Netzwerk-Discovery + Instanz-Anlage | HTTPS-Titel-Erkennung |
 
 ---
@@ -152,6 +153,48 @@ Die Web-UI dieser Firmware bietet **nur Steuerung** (Out A/B, Eingänge, Audio, 
 **keine Netzwerkseite**. Es existiert kein IP-/DHCP-CGI, und außer Port 80 ist nichts offen.
 Die IP-Adresse lässt sich daher **nicht** über das Modul oder die Web-Oberfläche ändern;
 dafür braucht es das OEM-Windows-Tool (UDP-Discovery) oder den seriellen Anschluss.
+
+## PureLink PT-SW-HD41MV – 4x1 Multiview-Switch (HTTP-JSON)
+
+Device-Modul für den **PureLink PT-SW-HD41MV** (4x1 HDMI-Switch mit Multiview). Moderne
+Vue-Web-UI, Steuerung über eine **HTTP-JSON-API**. **Live verifiziert** (MCU 1.10.09,
+Web 2.00.09).
+
+- **Transport**: `POST /cgi-bin/instr` mit JSON-Body, roher HTTP/1.0 via `fsockopen`,
+  Antwort ist `Transfer-Encoding: chunked` – das Modul entpackt die Chunks selbst.
+- **Login**: `{"comhead":"set_login","username":<0|1>,"password":"…"}` → `{"result":1}`.
+  `username` ist ein **Index** (0 = Admin, 1 = User), kein Klartextname. Schreibzugriffe
+  brauchen einen vorherigen Login (Session ist quell-IP-gebunden).
+- **Lesen**: `{"comhead":"get_video"}` (Routing/Video-State) und
+  `{"comhead":"get_admin_information"}` (Modell, IP, Temperatur, Power).
+- **Schalten**: `{"comhead":"set_admin_window", <kompletter Video-State mit Änderung>}`
+  → `{"result":1}`. **Wichtig**: Es gibt keine Einzelfeld-Setter (`set_single_source`
+  liefert `not wait comhead`). Jede Änderung sendet den **gesamten** Video-State zurück;
+  das Modul holt dafür vor jedem Schreibvorgang frisch `get_video`, merged die Änderung
+  und sendet alles als `set_admin_window`.
+- **Video-State-Felder**: `single_source` (Eingang, 0-basiert), `auto_switch`,
+  `window_type` (0=Single, 1=PiP, 2=PbP, 3=Triple, 4=Quad), `pip/pbp/triple/quad_source`
+  (Arrays), diverse Modi/Aspects, `video_freeze`, `hdmi_resolution`, `hdcp_compliance`.
+- **Variablen**: Quelle (Single), Auto-Switch, Multiview-Layout, Bild einfrieren, dazu
+  Fenster-1..4-Quellen (je Layout relevant). Eingangsprofil `PLSW.<InstanceID>.Inputs`.
+- Prefix `PLSW_*`.
+
+### Öffentliche Funktionen
+
+| Funktion | Wirkung |
+|---|---|
+| `PLSW_SelectSource($id, $in)` | Single-Quelle wählen (1-basiert) |
+| `PLSW_SetWindowType($id, $type)` | Layout 0..4 (Single/PiP/PbP/Triple/Quad) |
+| `PLSW_SetWindowSource($id, $win, $in)` | Quelle eines Multiview-Fensters |
+| `PLSW_SetAutoSwitch($id, $on)` | Auto-Switch |
+| `PLSW_SetFreeze($id, $on)` | Bild einfrieren |
+| `PLSW_PollNow($id)` | Status abfragen |
+| `PLSW_TestConnection($id)` | Erreichbarkeit + Modell |
+| `PLSW_QueryRaw($id)` | roher `get_video` |
+| `PLSW_SendRaw($id, $json)` | beliebigen JSON-Befehl senden (Diagnose) |
+| `PLSW_Login($id)` | Login absetzen |
+
+---
 
 ## Roadmap
 

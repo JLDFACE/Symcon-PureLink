@@ -1,0 +1,120 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "Verbindung",
+      "items": [
+        { "type": "ValidationTextBox", "name": "Host", "caption": "Host / IP" },
+        { "type": "NumberSpinner", "name": "Port", "caption": "HTTP-Port (Standard: 80)", "minimum": 1, "maximum": 65535 },
+        { "type": "NumberSpinner", "name": "TimeoutMs", "caption": "Timeout (ms)", "minimum": 300, "maximum": 20000 },
+        { "type": "NumberSpinner", "name": "MinIntervalMs", "caption": "Mindestabstand zwischen HTTP-Calls (ms)", "minimum": 0, "maximum": 2000 },
+        { "type": "Select", "name": "UserRole", "caption": "Login-Rolle", "options": [
+          { "caption": "Admin", "value": 0 },
+          { "caption": "User", "value": 1 }
+        ] },
+        { "type": "PasswordTextBox", "name": "Password", "caption": "Passwort (Standard: admin)" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Eingänge",
+      "items": [
+        { "type": "NumberSpinner", "name": "InputCount", "caption": "Anzahl Eingänge", "minimum": 1, "maximum": 16 },
+        {
+          "type": "List",
+          "name": "InputNames",
+          "caption": "Namen der Eingänge (Reihenfolge = Eingang 1..n, leer = Standardname)",
+          "rowCount": 4,
+          "add": true,
+          "delete": true,
+          "columns": [
+            { "caption": "Name", "name": "Name", "width": "auto", "add": "", "edit": { "type": "ValidationTextBox" } }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Polling / Performance",
+      "items": [
+        { "type": "NumberSpinner", "name": "PollSlow", "caption": "PollSlow (Sek.)", "minimum": 5, "maximum": 600 },
+        { "type": "NumberSpinner", "name": "PollFast", "caption": "PollFast (Sek.)", "minimum": 2, "maximum": 30 },
+        { "type": "NumberSpinner", "name": "FastAfterChange", "caption": "FastAfterChange (Sek.)", "minimum": 5, "maximum": 120 },
+        { "type": "NumberSpinner", "name": "PendingTimeout", "caption": "Pending-Timeout (Sek.)", "minimum": 3, "maximum": 60 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Steuerung",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "SelIn", "caption": "Eingang (Single)", "minimum": 1, "maximum": 16 },
+            { "type": "Button", "caption": "Quelle wählen", "onClick": "echo PLSW_SelectSource($id, $SelIn) ? 'OK' : 'FEHLER';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Select", "name": "WinType", "caption": "Layout", "options": [
+              { "caption": "Single", "value": 0 },
+              { "caption": "PiP", "value": 1 },
+              { "caption": "PbP", "value": 2 },
+              { "caption": "Triple", "value": 3 },
+              { "caption": "Quad", "value": 4 }
+            ] },
+            { "type": "Button", "caption": "Layout setzen", "onClick": "echo PLSW_SetWindowType($id, $WinType) ? 'OK' : 'FEHLER';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "WinNo", "caption": "Fenster (Multiview)", "minimum": 1, "maximum": 4 },
+            { "type": "NumberSpinner", "name": "WinIn", "caption": "Eingang", "minimum": 1, "maximum": 16 },
+            { "type": "Button", "caption": "Fensterquelle setzen", "onClick": "echo PLSW_SetWindowSource($id, $WinNo, $WinIn) ? 'OK' : 'FEHLER';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Auto-Switch AN", "onClick": "echo PLSW_SetAutoSwitch($id, true) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Auto-Switch AUS", "onClick": "echo PLSW_SetAutoSwitch($id, false) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Freeze AN", "onClick": "echo PLSW_SetFreeze($id, true) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Freeze AUS", "onClick": "echo PLSW_SetFreeze($id, false) ? 'OK' : 'FEHLER';" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Diagnose",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Verbindung testen", "onClick": "echo PLSW_TestConnection($id) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Status jetzt abfragen", "onClick": "PLSW_PollNow($id);" },
+            { "type": "Button", "caption": "Video-State zeigen", "onClick": "echo PLSW_QueryRaw($id);" },
+            { "type": "Button", "caption": "Login testen", "onClick": "echo PLSW_Login($id) ? 'Login OK' : 'Login fehlgeschlagen';" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "ValidationTextBox", "name": "RawJson", "caption": "Roh-JSON an /cgi-bin/instr (z.B. {\"comhead\":\"get_video\"})" },
+            { "type": "Button", "caption": "Senden", "onClick": "echo PLSW_SendRaw($id, $RawJson);" }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": [
+    { "type": "Label", "caption": "Quelle (Single), Auto-Switch, Multiview-Layout, Fensterquellen und Freeze sind als Variablen schaltbar." }
+  ],
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 104, "icon": "inactive", "caption": "Inaktiv" },
+    { "code": 201, "icon": "error", "caption": "Host nicht konfiguriert" }
+  ]
+}
