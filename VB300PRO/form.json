@@ -1,0 +1,98 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "Verbindung",
+      "items": [
+        { "type": "ValidationTextBox", "name": "Host", "caption": "Host / IP" },
+        { "type": "NumberSpinner", "name": "Port", "caption": "Telnet-Port (Standard: 23)", "minimum": 1, "maximum": 65535 },
+        { "type": "ValidationTextBox", "name": "Username", "caption": "Benutzer (nur falls telnet-auth aktiv ist)" },
+        { "type": "PasswordTextBox", "name": "Password", "caption": "Passwort (nur falls telnet-auth aktiv ist)" },
+        { "type": "NumberSpinner", "name": "TimeoutMs", "caption": "Timeout (ms)", "minimum": 500, "maximum": 20000 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Kamera-Steuerung",
+      "items": [
+        { "type": "CheckBox", "name": "TrackingOffOnManual", "caption": "Bei manueller Steuerung automatisch auf Modus „Normal\" schalten" },
+        { "type": "NumberSpinner", "name": "StepFine", "caption": "Schrittweite fein (× Geräteschritt)", "minimum": 1, "maximum": 30 },
+        { "type": "NumberSpinner", "name": "StepCoarse", "caption": "Schrittweite grob (× Geräteschritt)", "minimum": 1, "maximum": 30 },
+        { "type": "Label", "caption": "Die Kamera fährt absolute Koordinaten. Grenzen und Geräteschritt liest das Modul selbst aus (--camera-geteptz)." }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Polling / Performance",
+      "items": [
+        { "type": "NumberSpinner", "name": "PollSlow", "caption": "PollSlow (Sek.)", "minimum": 5, "maximum": 600 },
+        { "type": "NumberSpinner", "name": "PollFast", "caption": "PollFast (Sek.)", "minimum": 2, "maximum": 30 },
+        { "type": "NumberSpinner", "name": "FastAfterChange", "caption": "FastAfterChange (Sek.)", "minimum": 5, "maximum": 120 },
+        { "type": "NumberSpinner", "name": "PendingTimeout", "caption": "Pending-Timeout (Sek.)", "minimum": 3, "maximum": 60 }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Steuerung",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Links",  "onClick": "PLVB_Move($id, 'l');" },
+            { "type": "Button", "caption": "Rechts", "onClick": "PLVB_Move($id, 'r');" },
+            { "type": "Button", "caption": "Hoch",   "onClick": "PLVB_Move($id, 'u');" },
+            { "type": "Button", "caption": "Runter", "onClick": "PLVB_Move($id, 'd');" },
+            { "type": "Button", "caption": "Mitte",  "onClick": "PLVB_MoveHome($id);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "NumberSpinner", "name": "PresetNo", "caption": "Preset (1–2)", "minimum": 1, "maximum": 2 },
+            { "type": "Button", "caption": "Preset speichern", "onClick": "PLVB_PresetSave($id, $PresetNo);" },
+            { "type": "Button", "caption": "Preset laden",     "onClick": "PLVB_PresetLoad($id, $PresetNo);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Display AN (CEC)",  "onClick": "PLVB_SetDisplayPower($id, true, 'ALL');" },
+            { "type": "Button", "caption": "Display AUS (CEC)", "onClick": "PLVB_SetDisplayPower($id, false, 'ALL');" },
+            { "type": "Button", "caption": "Leiser", "onClick": "PLVB_VolumeDown($id);" },
+            { "type": "Button", "caption": "Lauter", "onClick": "PLVB_VolumeUp($id);" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Diagnose",
+      "items": [
+        { "type": "Label", "caption": "Online/LastError werden über das Polling aktualisiert." },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "Button", "caption": "Verbindung testen", "onClick": "echo PLVB_TestConnection($id) ? 'OK' : 'FEHLER';" },
+            { "type": "Button", "caption": "Status jetzt abfragen", "onClick": "PLVB_PollNow($id);" },
+            { "type": "Button", "caption": "Neustart (Reboot)", "onClick": "PLVB_Reboot($id);" }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            { "type": "ValidationTextBox", "name": "DiagCmd", "caption": "CLI-Befehl (z. B. gbconfig -s camera-mode)" },
+            { "type": "Button", "caption": "Senden", "onClick": "echo PLVB_SendCommand($id, $DiagCmd);" }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": [
+    { "type": "Label", "caption": "Statusvariablen: Kamera-Modus, Position, Zoom, Tracking-Verhalten, Bild, Audio, OSD/CEC/Standby." }
+  ],
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Aktiv" },
+    { "code": 104, "icon": "inactive", "caption": "Inaktiv" },
+    { "code": 201, "icon": "error", "caption": "Host nicht konfiguriert" }
+  ]
+}

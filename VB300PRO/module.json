@@ -1,0 +1,17 @@
+{
+  "id": "{26452623-7F77-468B-B105-F3194EFE61D6}",
+  "name": "PureLink VB300PRO",
+  "type": 3,
+  "vendor": "PureLink",
+  "aliases": [
+    "PureLink VL-VB300-PRO",
+    "VL-VB300-PRO",
+    "VB300Pro",
+    "VB300-PRO",
+    "PureLink Video Bar"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "PLVB"
+}

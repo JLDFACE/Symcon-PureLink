@@ -14,6 +14,7 @@ Verbindungen pro Aktion).
 |-------|-----|---------------|-----------|
 | **PureLink VL-BYOD200** | Device | 4K60 BYOD/BYOM Presentation Switcher | Telnet-CLI (`gbconfig`/`gblayout`), Port 23 |
 | **PureLink VL-PTZ100** | Device | Compact 4K Dual-Lens PTZ Kamera | Telnet-CLI (`gbconfig`/`gbcontrol`), Port 23 |
+| **PureLink VL-VB300-PRO** | Device | 4K All-in-One Video Bar (Kamera + Audio) | Telnet-CLI (`gbconfig`/`gbcontrol`), Port 23 |
 | **PureLink PT-MA-HD42UHD** | Device | HDMI-Matrix 4x2 (SCU-Firmware) | HTTP-CGI (`Control.cgi`), Port 80 |
 | **PureLink PT-SW-HD41MV** | Device | HDMI 4x1 Multiview-Switch | HTTP-JSON (`/cgi-bin/instr`), Port 80 |
 | **PureLink Configurator** | Configurator | Netzwerk-Discovery + Instanz-Anlage | HTTPS-Titel-Erkennung |
@@ -22,8 +23,8 @@ Verbindungen pro Aktion).
 
 ## Plattform-Hintergrund
 
-BYOD200 und PTZ100 stammen von derselben OEM-Plattform (gemeinsame MAC-OUI `34-1b-22`)
-und werden beide über eine **Telnet-CLI** gesteuert (`gbconfig` / `gbcontrol` / `gblayout`).
+BYOD200, PTZ100 und VB300-PRO stammen von derselben OEM-Plattform (gemeinsame MAC-OUI `34-1b-22`)
+und werden alle über eine **Telnet-CLI** gesteuert (`gbconfig` / `gbcontrol` / `gblayout`).
 Die offizielle API-Doku (PureLink „API Manual") beschreibt diese CLI. Beide Geräte-Module
 teilen daher denselben Telnet-Transport (kurzlebige Verbindung pro Aktion, IAC-fähig).
 
@@ -32,6 +33,9 @@ teilen daher denselben Telnet-Transport (kurzlebige Verbindung pro Aktion, IAC-f
   abfragt, werden die konfigurierten Zugangsdaten gesendet. (Hinweis: Das API-Manual nennt
   Port 24; die getestete Firmware V1.1.3 nutzt jedoch Port 23.)
 - **PTZ100**: Telnet auf **Port 23**, Login Benutzer `admin` mit leerem Passwort.
+- **VB300-PRO**: Telnet auf **Port 23**, ohne Login (Prompt `~ #` direkt). Über
+  `gbconfig --telnet-auth y` lässt sich am Gerät eine Anmeldung einschalten — der Transport
+  erkennt den Login-Prompt daher automatisch.
 
 Die HDMI-Matrizen stammen dagegen von einer anderen OEM-Plattform und sprechen **kein**
 `gbconfig`. Sie werden über kurze **HTTP-Requests auf `Control.cgi`** gesteuert (lwIP-Webserver).
@@ -60,7 +64,7 @@ diese wird nicht mehr verwendet, da die Telnet-CLI die dokumentierte, unterstüt
 ## Configurator
 
 Der Configurator scannt das lokale `/24`-Subnetz (Port 443, paralleler Connect-Scan) und
-erkennt PureLink-Geräte am Web-Titel (`VL-BYOD200` / `VL-PTZ100`). Gefundene Geräte werden
+erkennt PureLink-Geräte am Web-Titel (`VL-BYOD200` / `VL-PTZ100` / `VL-VB300-PRO`). Gefundene Geräte werden
 mit Modell, IP und Status („neu" / „angelegt") gelistet und lassen sich per Klick als
 Instanz anlegen (Host wird vorbelegt).
 
@@ -87,6 +91,156 @@ Instanz anlegen (Host wird vorbelegt).
 - **Wichtig**: Manuelles PTZ nur bei Tracking-Modus `0` (aus). Das Modul schaltet auf Wunsch
   automatisch um (Option „Bei manueller Steuerung Tracking automatisch abschalten").
 - Prefix `PLPTZ_*`.
+
+---
+
+## VL-VB300-PRO (Telnet-CLI)
+
+Device-Modul für die **PureLink VL-VB300-PRO** (4K All-in-One Video Bar: Kamera, Mikrofone,
+Lautsprecher). **Live verifiziert** an zwei Geräten (Gerätekennung `VB20-P20`, Firmware
+`V1.2.15`, Kamera-Teil `V1.2.1`).
+
+- Login: Telnet **Port 23**, ohne Zugangsdaten (Prompt `~ #`).
+- Identifikation: Web-Titel `VL-VB300-PRO`, Gerätename `VL-VB300-PRO-<MAC-Suffix>`
+  (`gbconfig -s name`), Modell/Firmware über `gbconfig -s device-info`.
+- Prefix `PLVB_*`.
+
+### Unterschied zur VL-PTZ100: absolute Koordinaten
+
+Die PTZ100 fährt **relativ** (`--camera-autocoord`) und braucht deshalb Burst- und
+Warmup-Logik. Die VB300-PRO fährt dagegen **absolut**: `gbconfig --camera-coord <x> <y>`.
+Die Grenzen und die Schrittweite liefert das Gerät selbst:
+
+```
+gbconfig --camera-geteptz
+{"result":{"autozoomunit":1,"phymaxzoom":500,"xmax":108000,"xmin":-108000,"xstep":3600,
+           "ymax":108000,"ymin":-108000,"ystep":3600,"zoom":500}}
+```
+
+Das Modul liest diese Werte beim `ApplyChanges` und bei jedem Poll aus, begrenzt alle
+Fahrbefehle darauf und zieht das Zoom-Profil auf `phymaxzoom` nach. Manuelles Fahren ist
+damit deterministisch — kein Burst, kein Warmup, keine Dauerfahrt-Schleife.
+
+**Wichtig**: Manuelles Pan/Tilt/Zoom und das Laden von Presets setzen den Kamera-Modus
+`normal` voraus (Tracking aus). Das Modul schaltet auf Wunsch automatisch um (Option
+„Bei manueller Steuerung automatisch auf Modus ‚Normal' schalten"). Lehnt das Gerät einen
+solchen Befehl trotzdem mit `-2` ab, schaltet das Modul einmal hart auf `normal` und
+wiederholt den Befehl — der Modus kann auch am Gerät selbst umgestellt worden sein.
+
+### Falle: Returncode `-1` — Kamera-Engine im Leerlauf
+
+**Am Gerät verifiziert, an beiden Exemplaren:** Solange **kein Videostream läuft** (kein
+USB-Host verbunden), lehnt die Kamera `--camera-coord` und `--camera-zoom` mit `-1` ab —
+auch im Modus `normal`, auch bei Wiederholung in derselben Sitzung. Ein Warmup wie bei der
+PTZ100 hilft hier **nicht**.
+
+```
+gbconfig --camera-mode normal     ->  (leer, ok)
+gbconfig -s camera-mode           ->  normal
+gbconfig --camera-coord 3600 0    ->  -1      # fuenfmal wiederholt: immer -1
+gbconfig -s camera-coord          ->  0 0     # Position unveraendert
+```
+
+Die **Konfigurationsbefehle greifen davon unabhängig sofort** (Spiegeln, WDR, OSD,
+Mikrofon, Audio-Ausgang, Auto-Standby — alle live gegengeprüft). Das ist also ein
+Betriebszustand des Geräts, kein Modulfehler; `LastError` benennt ihn im Klartext.
+
+Konsequenz für die Praxis: Pan/Tilt/Zoom und Presets erst verdrahten, wenn die Video Bar
+im Betrieb ist (Konferenz aktiv). Der Rest des Moduls funktioniert auch im Leerlauf.
+
+### Verifizierte CLI
+
+Alle Parameterbereiche wurden am Gerät erhoben — die CLI gibt bei ungültigem Argument ihre
+Syntaxzeile aus, **ohne den Wert zu setzen** (`gbconfig --camera-mode XXX` →
+`gbconfig --camera-mode {normal | autoframing | ...}`). Das ist der gefahrlose Weg, den
+Befehlsumfang einer Firmware zu erheben.
+
+| Zweck | Befehl |
+|---|---|
+| Kamera-Modus | `gbconfig --camera-mode {normal \| autoframing \| speakertracking \| presentertracking \| individualsgallery}` |
+| Position (absolut) | `gbconfig --camera-coord [SInt32] [SInt32]` |
+| Zoom | `gbconfig --camera-zoom [SInt32]` (100 = 1x, max. `phymaxzoom`) |
+| Preset speichern / laden | `gbconfig --camera-savecoord [1 ~ 2]` · `--camera-loadcoord [1 ~ 2]` |
+| Auto-Framing Übergang | `gbconfig --camera-autoframing {smooth \| immediate}` |
+| Auto-Framing Tempo | `gbconfig --camera-autoframingspeed {slow \| normal \| fast}` |
+| Spiegeln / HD | `gbconfig --camera-mirror {n \| y}` · `--camera-hd {n \| y}` |
+| WDR | `gbconfig --camera-wdr { -7 ~ 7 }` |
+| Netzfrequenz | `gbconfig --camera-powerfreq {50 \| 60}` |
+| Max. Auflösung | `gbconfig --camera-max-resolution {0 \| 1 \| 2}` |
+| Audio-Ausgang | `gbconfig --ao-select { 0 \| 1 \| 2 }` |
+| Lautstärke | `gbconfig --autovolume { inc \| dec }` (nur relativ, kein absoluter Pegel) |
+| Mikrofon | `gbconfig --vb-mic-disable { y \| n }` — **invertiert** zur Variable „Mikrofon aktiv" |
+| USB-Maus/Tastatur | `gbconfig --mice-enable {n \| y}` |
+| OSD / CEC | `gbconfig --osd-enable [ y \| n ]` · `--cec-enable {n \| y}` |
+| Auto-Standby | `gbconfig --auto-standby-enable { y \| n }` · `--auto-standby-time 0-30` (Minuten) |
+| Display per CEC | `gbcontrol --sinkpower { on \| off } { HDMI1 \| HDMI2 \| ALL }` |
+| CEC-Rohbefehl | `gbcontrol --send-cmd { hdmi1 \| hdmi2 } [ str ]` |
+| Neustart | `gbcontrol --reboot` |
+
+Lesen über `gbconfig -s <item>` (`device-info`, `name`, `camera-mode`, `camera-coord`,
+`camera-zoom`, `ao-select`, `osd-enable`, `cec-enable`, `auto-standby-enable`,
+`auto-standby-time`, `mice-enable`, `vb-mic-disable`, `camera-hd`, `camera-mirror`,
+`camera-wdr`, `camera-max-resolution`, `telnet-auth`) sowie als JSON über
+`gbconfig --camera-getconfig` und `--camera-geteptz`.
+
+**Falle**: Für `mirror` und `osd` weicht die JSON-Sicht aus `--camera-getconfig` auf der
+getesteten Firmware vom Wert aus `gbconfig -s <item>` ab (JSON meldete `mirror:y` / `osd:n`,
+die Einzelabfrage `n` / `y`). Das Modul nimmt für diese beiden die **Einzelabfrage** als
+Wahrheit, weil sie den per CLI gesetzten Zustand spiegelt.
+
+### Polling
+
+Der komplette Status wird in **einer** Telnet-Sitzung als Batch geholt (`CliBatch`) — bei
+rund 15 Werten wäre eine Verbindung je Wert zu langsam und würde die CLI unnötig belasten.
+
+### Öffentliche Funktionen
+
+| Funktion | Wirkung |
+|---|---|
+| `PLVB_SetCameraMode($id, $mode)` | Kamera-Modus 0–4 (0 = Normal/Tracking aus) |
+| `PLVB_Move($id, $dir)` | ein Schritt `'l'`/`'r'`/`'u'`/`'d'` (fein/grob je Schalter) |
+| `PLVB_MoveTo($id, $x, $y)` | absolute Position anfahren (wird auf die Gerätegrenzen begrenzt) |
+| `PLVB_MoveHome($id)` | Mittelposition (0/0) |
+| `PLVB_SetZoom($id, $zoom)` | Zoom, 100 = 1x |
+| `PLVB_PresetSave($id, $no)` / `PLVB_PresetLoad($id, $no)` | Preset 1–2 |
+| `PLVB_SetAutoFramingTransition($id, $mode)` | 0 = weich, 1 = sofort |
+| `PLVB_SetAutoFramingSpeed($id, $speed)` | 0 = langsam, 1 = normal, 2 = schnell |
+| `PLVB_SetMirror($id, $on)` · `PLVB_SetHD($id, $on)` | Bild spiegeln / HD-Modus |
+| `PLVB_SetWDR($id, $value)` | WDR −7 … 7 |
+| `PLVB_SetPowerFrequency($id, $hz)` | 50 oder 60 |
+| `PLVB_SetMaxResolution($id, $level)` | 0, 1 oder 2 |
+| `PLVB_SetAudioOutput($id, $mode)` | 0 = Lautsprecher, 1 = HDMI, 2 = Modus 2 |
+| `PLVB_VolumeUp($id)` / `PLVB_VolumeDown($id)` | Lautstärke relativ |
+| `PLVB_SetMicrophone($id, $on)` | Mikrofon aktiv (Modul dreht das Geräteflag) |
+| `PLVB_SetMice($id, $on)` | USB-Maus/Tastatur |
+| `PLVB_SetOSD($id, $on)` · `PLVB_SetCEC($id, $on)` | OSD / CEC |
+| `PLVB_SetAutoStandby($id, $on)` · `PLVB_SetAutoStandbyTime($id, $min)` | Auto-Standby |
+| `PLVB_SetDisplayPower($id, $on, $sink)` | Display per CEC (`HDMI1`/`HDMI2`/`ALL`) |
+| `PLVB_Reboot($id)` | Neustart |
+| `PLVB_PollNow($id)` · `PLVB_TestConnection($id)` | Status / Erreichbarkeit |
+| `PLVB_SendCommand($id, $cmd)` | beliebigen CLI-Befehl senden (Diagnose) |
+
+### Teststatus
+
+Live gegen zwei Geräte (`192.168.102.100`, `192.168.102.142`) geprüft:
+
+| Bereich | Status |
+|---|---|
+| Verbindung, Batch-Polling (17 Werte in ~2,3 s) | ✅ verifiziert |
+| Kamera-Modus setzen und zurücklesen | ✅ verifiziert |
+| Spiegeln, WDR, OSD, Mikrofon, Auto-Standby-Zeit | ✅ verifiziert |
+| Audio-Ausgang, Lautstärke inc/dec | ✅ verifiziert |
+| Ablehnung ungültiger Werte (Modus 9, 42 Hz, Preset 7, Stufe 5) | ✅ verifiziert |
+| Rückstellung aller Werte auf den Ausgangszustand | ✅ verifiziert |
+| Pan/Tilt, Zoom, Preset laden | ⚠️ Gerät antwortet im Leerlauf `-1` (siehe oben) |
+| Preset **speichern**, Display per CEC | ⚠️ bewusst nicht live ausgelöst |
+
+### Nicht abbildbar
+
+- **Lautstärke absolut**: Die CLI kennt nur `inc`/`dec`, keinen Pegel und keine Rückmeldung.
+  Die Variable „Lautstärke" ist deshalb eine transiente Wippe, kein Sollwert.
+- **Display-Zustand**: `--sinkpower` sendet nur; das Gerät meldet den Zustand des
+  angeschlossenen Displays nicht zurück. Der Schalter folgt dem gesendeten Befehl.
 
 ---
 
@@ -201,6 +355,15 @@ Web 2.00.09).
 - Configurator: MAC/OUI-Anzeige, gezieltes Rescan per Button.
 - Matrix: Preset-Kommando am Gerät verifizieren; Configurator um Matrix-Erkennung erweitern.
 - PTZ100: AI-Tracking-Detailparameter (Speaker/Presenter PiP, AI-Region), Fokus-Range-Anzeige.
+- VB300-PRO: **Pan/Tilt/Zoom und Presets bei laufendem Videostream gegenprüfen** — im
+  Leerlauf lehnt das Gerät sie mit `-1` ab (siehe oben), die Befehlssyntax selbst ist aus
+  der CLI-Usage erhoben, aber die Wirkung ist noch nicht beobachtet.
+- VB300-PRO: `--camera-savecoord` bewusst **nicht** live getestet — das würde eine am Gerät
+  gespeicherte Preset-Position überschreiben.
+- VB300-PRO: `gbcontrol --sinkpower` nicht live getestet (würde ein Display per CEC schalten).
+- VB300-PRO: AI-Region (`--camera-ai-region-select` / `--camera-ai-region-info`) und
+  CEC-Rohbefehle (`--cec-cmd`, `gbcontrol --send-cmd`) auswerten; Konflikt zwischen
+  `--camera-getconfig` und `-s` bei `mirror`/`osd` am Gerät abschliessend klären.
 - BYOD200: Multiview-Fenster gezielt belegen (`gblayout --start-video <name> <WinNo>`),
   Audio-Routing (`gbconfig --audio-source`), Display-Power via CEC/RS232.
 

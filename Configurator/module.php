@@ -15,6 +15,7 @@ class PureLinkConfigurator extends IPSModule
     // GUIDs der Geraete-Module dieser Library
     const GUID_BYOD200 = '{8041FE72-CD5F-45BD-B775-1FE4C5FEDB02}';
     const GUID_PTZ100  = '{30524568-8CA3-4334-955A-AD43B8FCC614}';
+    const GUID_VB300PRO = '{26452623-7F77-468B-B105-F3194EFE61D6}';
 
     public function Create()
     {
@@ -107,6 +108,9 @@ class PureLinkConfigurator extends IPSModule
                 $config = array('Host' => $ip, 'Port' => 23);
             } elseif ($model === 'VL-PTZ100') {
                 $guid = self::GUID_PTZ100;
+                $config = array('Host' => $ip, 'Port' => 23);
+            } elseif ($model === 'VL-VB300-PRO') {
+                $guid = self::GUID_VB300PRO;
                 $config = array('Host' => $ip, 'Port' => 23);
             } else {
                 continue;
@@ -227,18 +231,23 @@ class PureLinkConfigurator extends IPSModule
         return array_values(array_unique($open));
     }
 
-    // Ermittelt das Modell ueber den Web-Titel. Rueckgabe: 'VL-BYOD200' | 'VL-PTZ100' | ''.
+    // Ermittelt das Modell ueber den Web-Titel.
+    // Rueckgabe: 'VL-BYOD200' | 'VL-PTZ100' | 'VL-VB300-PRO' | ''.
     private function IdentifyModel($ip)
     {
         $html = $this->HttpGet('https://' . $ip . '/');
         if ($html === false || $html === '') return '';
 
+        // VB300-PRO zuerst pruefen: die Schreibweise ist eindeutig und soll nicht
+        // von einer allgemeineren Regel verschluckt werden.
+        if (stripos($html, 'VL-VB300-PRO') !== false) return 'VL-VB300-PRO';
         if (stripos($html, 'VL-BYOD200') !== false) return 'VL-BYOD200';
         if (stripos($html, 'VL-PTZ100') !== false) return 'VL-PTZ100';
 
         // Fallback: Titel extrahieren
         if (preg_match('/<title>\s*([^<]+?)\s*<\/title>/i', $html, $m)) {
             $t = trim($m[1]);
+            if (stripos($t, 'VB300') !== false) return 'VL-VB300-PRO';
             if (stripos($t, 'BYOD200') !== false) return 'VL-BYOD200';
             if (stripos($t, 'PTZ100') !== false) return 'VL-PTZ100';
         }
