@@ -246,6 +246,8 @@ class PureLinkPTMAHD42UHD extends IPSModule
             }
 
             $this->ClearLastError();
+            // Nach Ablauf von FastAfterChange zurueck auf PollSlow, sonst bleibt PollFast ewig an
+            $this->UpdatePollingTimers(false);
         } finally {
             $this->Unlock();
         }
